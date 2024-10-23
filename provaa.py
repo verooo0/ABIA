@@ -12,9 +12,33 @@ def gen_estado_inicial(paquetes, ofertas):
                 break
     return asignaciones
 
+def bn_estado_inicial(paquetes,ofertas):
+    asignaciones = {}
+    
+    for prioridad in range(3):
+        for paquete in paquetes:
+            if paquete.prioridad == prioridad:
+                for oferta in ofertas:
+                    peso_total_asignado = sum(p.peso for p in asignaciones.get(oferta, []))
+                    if peso_total_asignado + paquete.peso <= oferta.pesomax:
+                        if oferta not in asignaciones:
+                            asignaciones[oferta] = []  
+                        asignaciones[oferta].append(paquete)  
+                        break
+    return asignaciones
+
 
 paquetes = abia_azamon.random_paquetes(30, 1234)  
-ofertas = abia_azamon.random_ofertas(paquetes, 12, 1234)  
+ofertas = abia_azamon.random_ofertas(paquetes, 12, 1234) 
+
+estado_inicial_b = bn_estado_inicial(paquetes, ofertas)
+
+for oferta, paquetes_asignados in estado_inicial_b.items():
+
+    print(f"Oferta: {oferta}")
+    for paquete in paquetes_asignados:
+        print(f"  Paquete: {paquete}")
+
 
 estado_inicial = gen_estado_inicial(paquetes, ofertas)
 
