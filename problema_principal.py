@@ -1,9 +1,29 @@
+#----Se deberian separar algunas clases an su propio documento-----
+
 from __future__ import annotations
 from typing import List, Set, Generator
 from cont_par_op import BinPackingOperator, ProblemParameters, MoveParcel, SwapParcels
 from aima.search import Problem
-from aima . search import hill_climbing
+from aima.search import hill_climbing
+import abia_azamon
 import timeit
+
+from typing import List
+
+
+class ProblemParameters(object):
+    def __init__(self, paq, ofert ):  #h_max: int, v_h: List[int], p_max: int, c_max: int
+        # self.h_max = h_max  # Alçada màxima de tots els contenidors
+        # self.v_h = v_h      # Alçades de cada paquet
+        # self.p_max = p_max  # Màxim número de paquets
+        # self.c_max = c_max  # Màxim número de contenidors
+        self.paq = paq
+        self.ofert = ofert
+
+    def __repr__(self):
+        return f"Params(Paquetes={self.paq}, Ofertas={self.ofert})" #, p_max={self.p_max}, c_max={self.c_max}
+    
+
 
 class StateRepresentation(object):
     def __init__(self, params: ProblemParameters, v_c: List[Set[int]]):
@@ -23,8 +43,8 @@ class StateRepresentation(object):
             if p_i in self.v_c[c_i]:
                 return c_i
 
-    def generate_actions(self) -> Generator[BinPackingOperator, None, None]:
-        free_spaces = []
+    def generate_actions(self) -> Generator[BinPackingOperator, None, None]:  #donde se utilizan los operadores que 
+        free_spaces = []                                                      # ya se han programado en operadors.py      
         for c_i, parcels in enumerate(self.v_c):
             h_c_i = self.params.h_max
             for p_i in parcels:
@@ -100,3 +120,48 @@ class BinPackingProblem(Problem):
 
     def goal_test(self, state: StateRepresentation) -> bool:
         return False
+
+
+def gen_estado_inicial_1(params: ProblemParameters ): #paquetes, ofertas
+    asignaciones = {} # Cost intentar linial 
+    for paquete in params.paq: 
+        for oferta in params.ofert:
+            peso_total_asignado = sum(p.peso for p in asignaciones.get(oferta, []))
+            if peso_total_asignado + paquete.peso <= oferta.pesomax:
+                if oferta not in asignaciones:
+                    asignaciones[oferta] = []  
+                asignaciones[oferta].append(paquete)  
+                break
+    return asignaciones
+
+def gen_estado_inicial_2(params: ProblemParameters):
+    asignaciones = {}
+    
+    for prioridad in range(3):
+        for paquete in params.paq:
+            if paquete.prioridad == prioridad:
+                for oferta in params.ofert:
+                    peso_total_asignado = sum(p.peso for p in asignaciones.get(oferta, []))
+                    if peso_total_asignado + paquete.peso <= oferta.pesomax:
+                        if oferta not in asignaciones:
+                            asignaciones[oferta] = []  
+                        asignaciones[oferta].append(paquete)  
+                        break
+    return asignaciones
+
+paquetes = abia_azamon.random_paquetes(30, 124)  
+ofertas = abia_azamon.random_ofertas(paquetes, 1.2, 1234)
+
+if __name__ == '__main__':
+    initial_state_1 = gen_estado_inicial_1(ProblemParameters(paquetes,ofertas))
+    initial_state_2 = gen_estado_inicial_2(ProblemParameters(paquetes,ofertas))    
+
+    n_count = hill_climbing(BinPackingProblem(initial_state, use_entropy=False))
+    t_count = timeit.timeit(lambda: hill_climbing(BinPackingProblem(initial_state, use_entropy=False)), number=5)
+    n_entropy = hill_climbing(BinPackingProblem(initial_state, use_entropy=True))
+    t_entropy = timeit.timeit(lambda: hill_climbing(BinPackingProblem(initial_state, use_entropy=True)), number=5)
+
+    print(f"heuristic_count,   num. contenidors: {len(set(n_count.v_p))} contenidors")
+    print(f"heuristic_count,   temps/5 execs.  : {t_count}s.")
+    print(f"heuristic_entropy, num. contenidors: {len(set(n_entropy.v_p))} contenidors")
+    print(f"heuristic_entropy, temps/5 execs.  : {t_entropy}s.")
