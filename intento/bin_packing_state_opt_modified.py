@@ -42,10 +42,7 @@ class StateRepresentation(object):
                 if pkg_id_1 != pkg_id_2:
                     yield SwapAssignments(pkg_id_1, pkg_id_2)
 
-        # for pkg_id, offer_id in enumerate(self.assignments):
-        #     for new_offer_id in range(len(self.params.offer_capacities)):
-        #         if new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= self.params.package_weights[pkg_id]:
-        #             yield EliminatePackage(pkg_id, new_offer_id)
+    
         
     def apply_action(self, action: AzamonOperator):
         new_state = self.copy()
