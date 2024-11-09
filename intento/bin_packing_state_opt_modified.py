@@ -22,27 +22,32 @@ class StateRepresentation(object):
         return StateRepresentation(self.params, self.assignments.copy(), self.happiness.copy())
 
     def generate_actions(self) -> Generator[AzamonOperator, None, None]:
+        total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
+
         for pkg_id, offer_id in enumerate(self.assignments):
-            package_priority = self.params.priority_packages[pkg_id]
+            total_weights_per_offer[offer_id] += self.params.package_weights[pkg_id]
 
-            if package_priority == 0:  # Prioridad de entrega al día siguiente
-                max_delivery_days = 1
-            elif package_priority == 1:  # Prioridad de entrega en 2-3 días
-                max_delivery_days = 3
-            elif package_priority == 2:  # Prioridad de entrega en 4-5 días
-                max_delivery_days = 5
-
+        for pkg_id, offer_id in enumerate(self.assignments):
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+            
             for new_offer_id in range(len(self.params.offer_capacities)):
 
-                if new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= self.params.package_weights[pkg_id] and self.params.days_limits[new_offer_id] <= max_delivery_days:
+                weight_new_offer = total_weights_per_offer[new_offer_id] + self.params.package_weights[pkg_id]
+
+                if (new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= weight_new_offer 
+                    and self.params.days_limits[new_offer_id] <= max_delivery_days):
+                    
                     yield AssignPackage(pkg_id, new_offer_id)
 
-        for pkg_id_1 in range(len(self.assignments)):
-            for pkg_id_2 in range(len(self.assignments)):
+        for pkg_id_1,offer_id_1 in enumerate(self.assignments):
+            for pkg_id_2, offer_id_2 in range(len(self.assignments)):
                 if pkg_id_1 != pkg_id_2:
                     yield SwapAssignments(pkg_id_1, pkg_id_2)
 
-    
+        # for pkg_id, offer_id in enumerate(self.assignments):
+        #     for new_offer_id in range(len(self.params.offer_capacities)):
+        #         if new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= self.params.package_weights[pkg_id]:
+        #             yield EliminatePackage(pkg_id, new_offer_id)
         
     def apply_action(self, action: AzamonOperator):
         new_state = self.copy()
@@ -59,36 +64,49 @@ class StateRepresentation(object):
         return new_state
 
     def heuristic_cost(self) -> float:
-        total_transport_cost, total_storage_cost= 0.0, 0.0
+        total_transport_cost, total_storage_cost, penalty= 0.0, 0.0, 0.0
+        total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
         #send_cost = sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         for pkg_id, offer_id in enumerate(self.assignments):
             package_weight = self.params.package_weights[pkg_id]
             days_limit = self.params.days_limits[offer_id]
             price_per_kg = self.params.price_kg[offer_id]
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
 
             # 1. Coste de transporte
             transport_cost = price_per_kg * package_weight
             total_transport_cost += transport_cost
 
         # 2. Coste de almacenamiento (solo para ofertas con 3 días o más)
-        # Si el paquete está asignado a una oferta de 3 días o más, calculamos el coste de almacenamiento.
             if days_limit >= 3:
                 if days_limit == 3 or days_limit == 4:
                     storage_days = 1  # Paquetes de 3-4 días se almacenan un día
                 elif days_limit == 5:
                     storage_days = 2  # Paquetes de 5 días se almacenan dos días
 
-                # Calculo del coste de almacenamiento basado en el peso del paquete y los días de almacenamiento
+            # Calculo del coste de almacenamiento basado en el peso del paquete y los días de almacenamiento
                 storage_cost = storage_days * 0.25 * package_weight
                 total_storage_cost += storage_cost
+
+        #Penalización entrega tarde
+            if days_limit > max_delivery_days:
+                penalty+= 1000 
+
+        #Penalización supera peso oferta
+            total_weights_per_offer[offer_id] += package_weight
+
+        for offer_id, total_weight in enumerate(total_weights_per_offer):
+            if total_weight > self.params.offer_capacities[offer_id]:
+                penalty += 500
+                
         #return sum(self.params.offer_capacities[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         #return sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         
-        return total_transport_cost + total_storage_cost
+        return total_transport_cost + total_storage_cost + penalty
     
     def heuristic_happiness(self) -> float:
         self.update_happiness()
-        
+
         return sum(self.happiness.values())
 
     def is_goal(self) -> bool:
@@ -98,17 +116,10 @@ class StateRepresentation(object):
     
         for pkg_id, offer_id in enumerate(self.assignments):
             package_weight = self.params.package_weights[pkg_id]
-            package_priority = self.params.package_priorities[pkg_id]
-            
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id] 
             
             total_weights_per_offer[offer_id] += package_weight
-
-            
-            max_delivery_days = (1 if package_priority == 0 else
-                                3 if package_priority == 1 else
-                                5)
-
-            
+          
             if self.params.days_limits[offer_id] > max_delivery_days:
                 return False  
 
@@ -118,7 +129,7 @@ class StateRepresentation(object):
                 return False  
 
         
-        return True
+        return True 
 
          
         #return all(self.params.offer_capacities[offer_id] >= self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
