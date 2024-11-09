@@ -1,14 +1,16 @@
 from typing import List, Dict, Generator
-from bin_packing_operators_modified import AzamonOperator, AssignPackage, SwapAssignments, EliminatePackage
+from bin_packing_operators_modified import AzamonOperator, AssignPackage, SwapAssignments, RemovePackage, InsertPackage
 from bin_packing_problem_parameters_modified import AzamonParameters
 
 class StateRepresentation(object):
-    def __init__(self, params: AzamonParameters, assignments: List[int], happiness: Dict[int, int] = None):
+    def __init__(self, params: AzamonParameters, assignments: List[int], happiness: Dict[int, int] = None, falta: List[int] = None):
         self.params = params
         self.assignments = assignments
         self.v_p = assignments
         self.happiness = happiness or {}
         self.update_happiness()
+        self.falta = falta or []
+        self.update_falta()
 
     def update_happiness(self):
         for pkg_id, offer_id in enumerate(self.assignments):
@@ -18,8 +20,14 @@ class StateRepresentation(object):
                              5)
             self.happiness[pkg_id] = max(0, max_delivery_days - self.params.days_limits[offer_id])
 
+    def update_falta(self):
+        self.falta = []
+        for pkg_id, offer_id in enumerate(self.assignments):
+            if self.assignments[pkg_id]== -1:
+                self.falta.append(pkg_id)
+
     def copy(self):
-        return StateRepresentation(self.params, self.assignments.copy(), self.happiness.copy())
+        return StateRepresentation(self.params, self.assignments.copy(), self.happiness.copy(), self.falta.copy())
 
     def generate_actions(self) -> Generator[AzamonOperator, None, None]:
         total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
@@ -44,10 +52,31 @@ class StateRepresentation(object):
                 if pkg_id_1 != pkg_id_2:
                     yield SwapAssignments(pkg_id_1, pkg_id_2)
 
-        # for pkg_id, offer_id in enumerate(self.assignments):
-        #     for new_offer_id in range(len(self.params.offer_capacities)):
-        #         if new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= self.params.package_weights[pkg_id]:
-        #             yield EliminatePackage(pkg_id, new_offer_id)
+########################################
+
+
+        for pkg_id, offer_id in enumerate(self.assignments):
+            if pkg_id not in self.falta and self.assignments[pkg_id] != -1:
+                yield RemovePackage(pkg_id, offer_id)
+
+        for pkg_id in self.falta:
+            package_priority = self.params.priority_packages[pkg_id]
+
+            if package_priority == 0:  # Prioridad de entrega al día siguiente
+                max_delivery_days = 1
+            elif package_priority == 1:  # Prioridad de entrega en 2-3 días
+                max_delivery_days = 3
+            elif package_priority == 2:  # Prioridad de entrega en 4-5 días
+                max_delivery_days = 5
+
+            for new_offer_id in range(len(self.params.offer_capacities)):
+
+                if self.params.offer_capacities[new_offer_id] >= self.params.package_weights[pkg_id] and self.params.days_limits[new_offer_id] <= max_delivery_days:
+                    yield InsertPackage(pkg_id, new_offer_id)
+
+            
+
+    
         
     def apply_action(self, action: AzamonOperator):
         new_state = self.copy()
@@ -56,11 +85,29 @@ class StateRepresentation(object):
             new_offer_id = action.offer_id
             new_state.assignments[pkg_id] = new_offer_id
             new_state.update_happiness()
+            new_state.update_falta()
         elif isinstance(action, SwapAssignments):
             pkg_id_1 = action.package_id_1
             pkg_id_2 = action.package_id_2
             new_state.assignments[pkg_id_1], new_state.assignments[pkg_id_2] = new_state.assignments[pkg_id_2], new_state.assignments[pkg_id_1]
             new_state.update_happiness()
+            new_state.update_falta()
+        elif isinstance(action, RemovePackage):
+            pkg_id = action.package_id
+            new_offer_id = action.offer_id
+            new_state.assignments[pkg_id] = -1
+            if pkg_id not in new_state.falta:
+                new_state.falta.append(pkg_id)
+            new_state.update_happiness()
+            new_state.update_falta()
+        elif isinstance(action, InsertPackage):
+            pkg_id = action.package_id
+            new_offer_id = action.offer_id
+            new_state.assignments[pkg_id] = new_offer_id
+            if pkg_id in new_state.falta:
+                new_state.falta.remove(pkg_id)
+            new_state.update_happiness()
+            new_state.update_falta()
         return new_state
 
     def heuristic_cost(self) -> float:
@@ -99,15 +146,15 @@ class StateRepresentation(object):
             if total_weight > self.params.offer_capacities[offer_id]:
                 penalty += 500
                 
-        #return sum(self.params.offer_capacities[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
-        #return sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
-        
+            self.update_falta()
+            penalty += 10*len(self.falta)
+            
         return total_transport_cost + total_storage_cost + penalty
     
     def heuristic_happiness(self) -> float:
         self.update_happiness()
-
-        return sum(self.happiness.values())
+        
+        return sum(self.happiness.values()) - 10*len(self.falta)
 
     def is_goal(self) -> bool:
         
@@ -116,10 +163,17 @@ class StateRepresentation(object):
     
         for pkg_id, offer_id in enumerate(self.assignments):
             package_weight = self.params.package_weights[pkg_id]
-            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id] 
+            package_priority = self.params.package_priorities[pkg_id]
+            
             
             total_weights_per_offer[offer_id] += package_weight
-          
+
+            
+            max_delivery_days = (1 if package_priority == 0 else
+                                3 if package_priority == 1 else
+                                5)
+
+            
             if self.params.days_limits[offer_id] > max_delivery_days:
                 return False  
 
@@ -129,8 +183,11 @@ class StateRepresentation(object):
                 return False  
 
         
-        return True 
+        return True
 
+    def last_assigments(self):
+        return self.assignments
+            #return all(self.params.offer_capacities[offer_id] >= self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
          
-        #return all(self.params.offer_capacities[offer_id] >= self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
+        
         
