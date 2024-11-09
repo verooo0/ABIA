@@ -56,7 +56,7 @@ for i in range(5):
     initial_state = generate_initial_state(n_paquetes=10, seed=i, proporcion=1.5)
     result = hill_climbing(AzamonProblem(initial_state, use_entropy=False))
 
+
     print(f"Prueba {i + 1}")
-    print(f"Heuristic cost: {result.heuristic_cost()} | Heuristic happiness: {result.heuristic_happiness()}")
+    print(f"Heuristic cost: {result.heuristic_cost()} | Heuristic happiness: {result.heuristic_happiness()} | Assignments: {result.last_assigments()}")
     print()
-    
