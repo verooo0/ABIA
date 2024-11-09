@@ -16,6 +16,8 @@ def generate_initial_state(n_paquetes: int, seed: int, proporcion: float) -> Sta
         max_weight=max(oferta.pesomax for oferta in ofertas),
         package_weights=[p.peso for p in paquetes],
         priority_packages=[p.prioridad for p in paquetes],
+        max_delivery_days_per_package= [1 if p.prioridad == 0 else 3 if p.prioridad == 1 else 5
+        for p in paquetes],
         offer_capacities=[o.pesomax for o in ofertas],
         days_limits=[o.dias for o in ofertas],
         price_kg= [o.precio for o in ofertas]
@@ -58,4 +60,3 @@ for i in range(5):
     print(f"Heuristic cost: {result.heuristic_cost()} | Heuristic happiness: {result.heuristic_happiness()}")
     print()
     
-
