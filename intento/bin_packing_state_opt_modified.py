@@ -39,8 +39,8 @@ class StateRepresentation(object):
                     
                     yield AssignPackage(pkg_id, new_offer_id)
 
-        for pkg_id_1,offer_id_1 in enumerate(self.assignments):
-            for pkg_id_2, offer_id_2 in range(len(self.assignments)):
+        for pkg_id_1 in range(len(self.assignments)):
+            for pkg_id_2 in range(len(self.assignments)):
                 if pkg_id_1 != pkg_id_2:
                     yield SwapAssignments(pkg_id_1, pkg_id_2)
 
