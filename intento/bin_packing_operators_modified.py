@@ -17,3 +17,12 @@ class SwapAssignments(AzamonOperator):
 
     def __repr__(self) -> str:
         return f"Swap assignments of packages {self.package_id_1} and {self.package_id_2}"
+    
+class RemovePackage(AzamonOperator):
+    def __init__(self, package_id: int, offer_id: int):
+        self.package_id = package_id
+        self.offer_id = offer_id  # Identifica de qué oferta o contenedor se va a quitar el paquete
+
+    def __repr__(self) -> str:
+        return f"Remove package {self.package_id} from offer {self.offer_id}"
+
