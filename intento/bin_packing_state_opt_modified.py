@@ -14,10 +14,11 @@ class StateRepresentation(object):
 
     def update_happiness(self):
         for pkg_id, offer_id in enumerate(self.assignments):
-            package_priority = self.params.priority_packages[pkg_id]
-            max_delivery_days = (1 if package_priority == 0 else
-                             3 if package_priority == 1 else
-                             5)
+            # package_priority = self.params.priority_packages[pkg_id]
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+            # max_delivery_days = (1 if package_priority == 0 else
+            #                  3 if package_priority == 1 else
+            #                  5)
             self.happiness[pkg_id] = max(0, max_delivery_days - self.params.days_limits[offer_id])
 
     def update_falta(self):
@@ -27,11 +28,11 @@ class StateRepresentation(object):
                 self.falta.append(pkg_id)
 
     def copy(self):
-        return StateRepresentation(self.params, self.assignments.copy(), self.happiness.copy(), self.falta.copy())
+        return StateRepresentation(self.params, self.assignments.copy(), self.happiness.copy())
 
     def generate_actions(self) -> Generator[AzamonOperator, None, None]:
         total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
-
+        #---AssignPackage---
         for pkg_id, offer_id in enumerate(self.assignments):
             total_weights_per_offer[offer_id] += self.params.package_weights[pkg_id]
 
@@ -46,37 +47,44 @@ class StateRepresentation(object):
                     and self.params.days_limits[new_offer_id] <= max_delivery_days):
                     
                     yield AssignPackage(pkg_id, new_offer_id)
-
+        #-----SwapAssignments-----
         for pkg_id_1 in range(len(self.assignments)):
             for pkg_id_2 in range(len(self.assignments)):
                 if pkg_id_1 != pkg_id_2:
-                    yield SwapAssignments(pkg_id_1, pkg_id_2)
+                    offer_id_1 = self.assignments[pkg_id_1]
+                    offer_id_2 = self.assignments[pkg_id_2]
+                    if offer_id_1 != offer_id_2:
 
-########################################
+                        weight_pkg_1 = self.params.package_weights[pkg_id_1]
+                        weight_pkg_2 = self.params.package_weights[pkg_id_2]
 
+                        max_delivery_days_1 = self.params.max_delivery_days_per_package[pkg_id_1]
+                        max_delivery_days_2 = self.params.max_delivery_days_per_package[pkg_id_2]
+
+                        new_weight_offer_1 = (total_weights_per_offer[offer_id_1] - weight_pkg_1 + weight_pkg_2)
+                        new_weight_offer_2 = (total_weights_per_offer[offer_id_2] - weight_pkg_2 + weight_pkg_1)
+
+                        if (self.params.offer_capacities[offer_id_1] >= new_weight_offer_1 and 
+                            self.params.offer_capacities[offer_id_2] >= new_weight_offer_2 and
+                            self.params.days_limits[offer_id_1] <= max_delivery_days_2 and
+                            self.params.days_limits[offer_id_2] <= max_delivery_days_1):
+                            
+                            yield SwapAssignments(pkg_id_1, pkg_id_2)
 
         for pkg_id, offer_id in enumerate(self.assignments):
             if pkg_id not in self.falta and self.assignments[pkg_id] != -1:
                 yield RemovePackage(pkg_id, offer_id)
 
         for pkg_id in self.falta:
-            package_priority = self.params.priority_packages[pkg_id]
-
-            if package_priority == 0:  # Prioridad de entrega al día siguiente
-                max_delivery_days = 1
-            elif package_priority == 1:  # Prioridad de entrega en 2-3 días
-                max_delivery_days = 3
-            elif package_priority == 2:  # Prioridad de entrega en 4-5 días
-                max_delivery_days = 5
+        
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
 
             for new_offer_id in range(len(self.params.offer_capacities)):
 
-                if self.params.offer_capacities[new_offer_id] >= self.params.package_weights[pkg_id] and self.params.days_limits[new_offer_id] <= max_delivery_days:
+                weight_new_offer = total_weights_per_offer[new_offer_id] + self.params.package_weights[pkg_id]
+
+                if self.params.offer_capacities[new_offer_id] >= weight_new_offer and self.params.days_limits[new_offer_id] <= max_delivery_days:
                     yield InsertPackage(pkg_id, new_offer_id)
-
-            
-
-    
         
     def apply_action(self, action: AzamonOperator):
         new_state = self.copy()
@@ -137,23 +145,26 @@ class StateRepresentation(object):
 
         #Penalización entrega tarde
             if days_limit > max_delivery_days:
-                penalty+= 1000 
+                penalty+= 100
 
         #Penalización supera peso oferta
             total_weights_per_offer[offer_id] += package_weight
 
         for offer_id, total_weight in enumerate(total_weights_per_offer):
             if total_weight > self.params.offer_capacities[offer_id]:
-                penalty += 500
+                penalty += 50
+
+        self.update_falta()
+        penalty += 100*len(self.falta)
                 
-            self.update_falta()
-            penalty += 10*len(self.falta)
-            
+        #return sum(self.params.offer_capacities[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
+        #return sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
+        
         return total_transport_cost + total_storage_cost + penalty
     
     def heuristic_happiness(self) -> float:
         self.update_happiness()
-        
+
         return sum(self.happiness.values()) - 10*len(self.falta)
 
     def is_goal(self) -> bool:
@@ -163,17 +174,10 @@ class StateRepresentation(object):
     
         for pkg_id, offer_id in enumerate(self.assignments):
             package_weight = self.params.package_weights[pkg_id]
-            package_priority = self.params.package_priorities[pkg_id]
-            
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id] 
             
             total_weights_per_offer[offer_id] += package_weight
-
-            
-            max_delivery_days = (1 if package_priority == 0 else
-                                3 if package_priority == 1 else
-                                5)
-
-            
+          
             if self.params.days_limits[offer_id] > max_delivery_days:
                 return False  
 
@@ -183,11 +187,12 @@ class StateRepresentation(object):
                 return False  
 
         
-        return True
+        return True 
 
+         
+        #return all(self.params.offer_capacities[offer_id] >= self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
+        
     def last_assigments(self):
         return self.assignments
             #return all(self.params.offer_capacities[offer_id] >= self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
          
-        
-        
