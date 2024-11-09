@@ -23,5 +23,4 @@ class AzamonProblem(Problem):
             return -state.heuristic_cost()
 
     def goal_test(self, state: StateRepresentation) -> bool:
-        return False
-        #return state.is_goal()
+        return state.is_goal()
