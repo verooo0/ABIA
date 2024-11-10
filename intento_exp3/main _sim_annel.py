@@ -103,157 +103,129 @@ def generate_initial_state_2(n_paquetes: int, seed: int, proporcion: float) -> S
 
 # Pruebas aleatorias con asignación por prioridad                   
 
-# total_init_time = 0
-# total_sim_time = 0
-# total_cost = 0
-# total_happiness = 0
+total_init_time = 0
+total_sim_time = 0
+total_cost = 0
+total_happiness = 0
 
 seeds=[1234,4321,6298,4015,8603,9914,7260,3281,2119,5673]
+lista_k=[0.001,0.05,1,10,20]
+lista_lam=[0.005,0.01,0.1,0.5]
 
-def exp_schedule(k=2, lam=0.005, limit=1000):
+def exp_schedule(k=0.05, lam=0.005, limit=1000):
     return lambda t: (k * math.exp(-lam * t) if t < limit else 0)
 
-# for i in range(10):
-#     print(f"\n=== Prueba {i + 1} ===")
-    
-#     start_init = time.time()
-#     initial_state = generate_initial_state_2(n_paquetes=50, seed=i, proporcion=1.2)
-#     init_time = time.time() - start_init
-#     total_init_time += init_time
-    
-#     start_sim = time.time()
-#     result = simulated_annealing(AzamonProblem(initial_state, use_entropy=False, mode_simulated_annealing=True), schedule=exp_schedule())
-#     sim_time = time.time() - start_sim
-#     total_sim_time += sim_time
-    
-#     cost = result.heuristic_cost()
-#     happiness = result.heuristic_happiness()
-#     total_cost += cost
-#     total_happiness += happiness
-    
-#     print(f"Time: {init_time + sim_time:.2f} seconds")
-#     print(f"Heuristic cost: {cost} | Heuristic happiness: {happiness} | Assignments: {result.last_assigments()}")
-#     print()
+# for lam in lista_lam: #Descomentar para hacer experimentos con diferentes valores de lam y k
+#     for k in lista_k:
+#         print(f"======Test k={k} i lam={lam}======")
 
-# print("\n=== Averages over 10 tests ===")
-# print(f"Average execution time: {(total_init_time + total_sim_time) / 10:.2f} seconds")
-# print(f"Average heuristic cost: {total_cost / 10:.2f}")
-# print(f"Average heuristic happiness: {total_happiness / 10:.2f}")
-
-import plotext as plt
-from termplot import plot
-import csv
-import os
-
-class CostTrackingProblem:
-    def __init__(self, base_problem):
-        self.base_problem = base_problem
-        self.costs_history = []
-        
-    def actions(self, state):
-        return self.base_problem.actions(state)
-        
-    def result(self, state, action):
-        new_state = self.base_problem.result(state, action)
-        self.costs_history.append(new_state.heuristic_cost())
-        return new_state
-        
-    def value(self, state):
-        return self.base_problem.value(state)
-
-def run_simulated_annealing_with_tracking():
-    # Create results directory if it doesn't exist
-    if not os.path.exists('results'):
-        os.makedirs('results')
-        
-    total_init_time = 0
-    total_sa_time = 0
-    total_cost = 0
-    total_happiness = 0
-    
+for e in range(5):
+    print(f"\n=== Replica {e + 1} ===")
     for i in range(10):
         print(f"\n=== Prueba {i + 1} ===")
         
         start_init = time.time()
-        initial_state = generate_initial_state(n_paquetes=50, seed=i, proporcion=1.2)
+        initial_state = generate_initial_state_2(n_paquetes=50, seed=i, proporcion=1.2)
         init_time = time.time() - start_init
         total_init_time += init_time
         
-        # Create tracking problem wrapper
-        tracking_problem = CostTrackingProblem(AzamonProblem(initial_state, use_entropy=False, mode_simulated_annealing=True))
+        start_sim = time.time()
+        result = simulated_annealing(AzamonProblem(initial_state, use_entropy=False, mode_simulated_annealing=True), schedule=exp_schedule())
+        sim_time = time.time() - start_sim
+        total_sim_time += sim_time
         
-        start_sa = time.time()
-        result = simulated_annealing(
-            tracking_problem,
-            schedule=exp_schedule()
-        )
-        sa_time = time.time() - start_sa
-        total_sa_time += sa_time
-        
-        # Get final values
         cost = result.heuristic_cost()
         happiness = result.heuristic_happiness()
         total_cost += cost
         total_happiness += happiness
         
-        print(f"Time: {init_time + sa_time:.2f} seconds")
-        print(f"Initial cost: {initial_state.heuristic_cost()}")
-        print(f"Final cost: {cost}")
-        print(f"Cost improvement: {initial_state.heuristic_cost() - cost:.2f}")
-        print(f"Heuristic happiness: {happiness}")
-        print(f"Number of iterations: {len(tracking_problem.costs_history)}")
-        
-        # 1. Plot using plotext
-        plt.clf()
-        plt.plot(tracking_problem.costs_history)
-        plt.title(f"Cost Evolution (plotext) - Run {i+1}")
-        plt.xlabel("Iteration")
-        plt.ylabel("Cost")
-        plt.show()
-        
-        # 2. Plot using termplot
-        print(f"\nCost Evolution (termplot) - Run {i+1}")
-        plot(tracking_problem.costs_history)
-        
-        # 3. Save to CSV
-        csv_filename = f'results/cost_evolution_run_{i+1}.csv'
-        with open(csv_filename, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Iteration', 'Cost'])
-            for iter_num, cost in enumerate(tracking_problem.costs_history):
-                writer.writerow([iter_num, cost])
-        print(f"\nSaved evolution data to {csv_filename}")
-        
-        # Optional: Save aggregated statistics
-        stats_filename = f'results/run_{i+1}_stats.csv'
-        with open(stats_filename, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Metric', 'Value'])
-            writer.writerow(['Initial Cost', initial_state.heuristic_cost()])
-            writer.writerow(['Final Cost', cost])
-            writer.writerow(['Cost Improvement', initial_state.heuristic_cost() - cost])
-            writer.writerow(['Happiness', happiness])
-            writer.writerow(['Execution Time', init_time + sa_time])
-            writer.writerow(['Number of Iterations', len(tracking_problem.costs_history)])
-        
-    # Print averages
-    print("\n=== Averages over 10 tests ===")
-    print(f"Average execution time: {(total_init_time + total_sa_time) / 10:.2f} seconds")
-    print(f"Average heuristic cost: {total_cost / 10:.2f}")
-    print(f"Average heuristic happiness: {total_happiness / 10:.2f}")
-    
-    # Save overall statistics
-    with open('results/overall_statistics.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Metric', 'Value'])
-        writer.writerow(['Average Execution Time', (total_init_time + total_sa_time) / 10])
-        writer.writerow(['Average Heuristic Cost', total_cost / 10])
-        writer.writerow(['Average Heuristic Happiness', total_happiness / 10])
+        print(f"Time: {init_time + sim_time:.2f} seconds")
+        print(f"Heuristic cost: {cost} | Heuristic happiness: {happiness} | Assignments: {result.last_assigments()}")
+        print()
 
-# Run the analysis
-if __name__ == "__main__":
-    run_simulated_annealing_with_tracking()
+print("\n=== Averages over 50 tests ===")
+print(f"Total time: {total_init_time + total_sim_time}")
+print(f"Average execution time: {(total_init_time + total_sim_time) / 50:.2f} seconds")
+print(f"Average heuristic cost: {total_cost / 50:.2f}")
+print(f"Average heuristic happiness: {total_happiness / 50:.2f}")
 
+#### PARA GUARDAR EN CSV LOS DATOS DE LA EVOLUCION DEL COSTE POR CADA CAMBIO EN EL ESTADO
 
+# import csv
+# import os
+
+# class CostTrackingProblem:
+#     def __init__(self, base_problem, experiment_num):
+#         self.base_problem = base_problem
+#         self.experiment_num = experiment_num
+#         self.iteration = 0
+#         self.states_data = []  # Store all states data
+#         self.initial = base_problem.initial
+        
+#     def actions(self, state):
+#         return self.base_problem.actions(state)
+        
+#     def result(self, state, action):
+#         new_state = self.base_problem.result(state, action)
+        
+#         # Store state data
+#         self.states_data.append({
+#             'iteration': self.iteration,
+#             'cost': new_state.heuristic_cost(),
+#             'happiness': new_state.heuristic_happiness()
+#         })
+        
+#         self.iteration += 1
+#         return new_state
+        
+#     def value(self, state):
+#         return self.base_problem.value(state)
+        
+#     def path_cost(self, c, state1, action, state2):
+#         return self.base_problem.path_cost(c, state1, action, state2)
+
+# def run_simulated_annealing_with_tracking():
+#     # Create results directory if it doesn't exist
+#     if not os.path.exists('results'):
+#         os.makedirs('results')
+        
+#     for i in range(10):
+#         print(f"\n=== Prueba {i + 1} ===")
+        
+#         start_init = time.time()
+#         initial_state = generate_initial_state(n_paquetes=50, seed=i, proporcion=1.2)
+#         init_time = time.time() - start_init
+        
+#         tracking_problem = CostTrackingProblem(AzamonProblem(initial_state, use_entropy=False, mode_simulated_annealing=True), i)
+        
+#         start_sa = time.time()
+#         result = simulated_annealing(
+#             tracking_problem,
+#             schedule=exp_schedule()
+#         )
+#         sa_time = time.time() - start_sa
+        
+#         # Save all states data for this experiment
+#         filename = f'results/experiment_{i}_states.csv'
+#         with open(filename, 'w', newline='') as f:
+#             writer = csv.writer(f)
+#             writer.writerow(['Iteration', 'Cost', 'Happiness'])
+#             for state_data in tracking_problem.states_data:
+#                 writer.writerow([
+#                     state_data['iteration'],
+#                     state_data['cost'],
+#                     state_data['happiness']
+#                 ])
+        
+#         print(f"Time: {init_time + sa_time:.2f} seconds")
+#         print(f"Initial cost: {initial_state.heuristic_cost()}")
+#         print(f"Final cost: {result.heuristic_cost()}")
+#         print(f"Cost improvement: {initial_state.heuristic_cost() - result.heuristic_cost():.2f}")
+#         print(f"Heuristic happiness: {result.heuristic_happiness()}")
+#         print(f"Number of iterations: {tracking_problem.iteration}")
+#         print(f"Data saved to {filename}")
+
+# if __name__ == "__main__":
+#     run_simulated_annealing_with_tracking()
 
 
