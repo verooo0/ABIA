@@ -2,6 +2,7 @@ import math
 from random import Random
 from typing import List
 
+
 """
 MUY IMPORTANTE:
 ESTE FICHERO NO DEBE SER MODIFICADO NI ENTREGADO JUNTO A LA PRÁCTICA,
