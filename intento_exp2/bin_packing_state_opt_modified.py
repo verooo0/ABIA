@@ -14,13 +14,12 @@ class StateRepresentation(object):
 
     def update_happiness(self):
         for pkg_id, offer_id in enumerate(self.assignments):
-            # package_priority = self.params.priority_packages[pkg_id]
-            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
-            # max_delivery_days = (1 if package_priority == 0 else
-            #                  3 if package_priority == 1 else
-            #                  5)
-            self.happiness[pkg_id] = max(0, max_delivery_days - self.params.days_limits[offer_id])
-
+            package_priority = self.params.priority_packages[pkg_id]
+            #max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+            min_delivery_days = (1 if package_priority == 0 else
+                                2 if package_priority == 1 else
+                                4)
+            self.happiness[pkg_id] = max(0, min_delivery_days - self.params.days_limits[offer_id])
     def update_falta(self):
         self.falta = []
         for pkg_id, offer_id in enumerate(self.assignments):
