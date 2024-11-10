@@ -149,7 +149,7 @@ class StateRepresentation(object):
         return new_state
 
 
-    def heuristic_cost(self) -> float:
+    def heuristic_cost(self, calc_penalty: bool = True) -> float:
         total_transport_cost, total_storage_cost, penalty= 0.0, 0.0, 0.0
         total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
         #send_cost = sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
@@ -176,27 +176,55 @@ class StateRepresentation(object):
 
         #Penalización entrega tarde
             if days_limit > max_delivery_days:
-                penalty+= 100
+                penalty+= 10000
+                
 
         #Penalización supera peso oferta
             total_weights_per_offer[offer_id] += package_weight
 
         for offer_id, total_weight in enumerate(total_weights_per_offer):
             if total_weight > self.params.offer_capacities[offer_id]:
-                penalty += 50
+                penalty += 500
+                
+                
+                
 
         self.update_falta()
-        penalty += 100*len(self.falta)
+        penalty += 1000*len(self.falta)
                 
         #return sum(self.params.offer_capacities[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         #return sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
+        if calc_penalty:
+            return total_transport_cost + total_storage_cost + penalty
+        else:
+            return total_transport_cost + total_storage_cost
         
-        return total_transport_cost + total_storage_cost + penalty
-    
-    def heuristic_happiness(self) -> float:
+    def heuristic_happiness(self, calc_penalty: bool = True) -> float:
+
         self.update_happiness()
-        
-        return sum(self.happiness.values()) - 10*len(self.falta)
+        penalty =0.0
+        total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
+        #send_cost = sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
+        for pkg_id, offer_id in enumerate(self.assignments):
+            package_weight = self.params.package_weights[pkg_id]
+            days_limit = self.params.days_limits[offer_id]
+            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+
+        #Penalización entrega tarde
+            if days_limit > max_delivery_days:
+                penalty+= 10
+            
+        #Penalización supera peso oferta
+            total_weights_per_offer[offer_id] += package_weight
+
+        for offer_id, total_weight in enumerate(total_weights_per_offer):
+            if total_weight > self.params.offer_capacities[offer_id]:
+                penalty += 10
+                
+        if calc_penalty:
+            return sum(self.happiness.values()) - 10*len(self.falta) -penalty
+        else:
+            return sum(self.happiness.values())
 
     def heuristic_cost_happy(self) ->float:
         total_logistic_cost = 0.0

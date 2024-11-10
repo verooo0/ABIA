@@ -20,13 +20,33 @@ class AzamonProblem(Problem):
         return state.apply_action(action)
 
     def value(self, state: StateRepresentation) -> float:
+        # if self.maximize_happiness:
+        #     return state.heuristic_happiness()
+        # elif self.combine_heuristic:
+        #     return 0*-state.heuristic_cost() + 1*state.heuristic_happiness()
+        # else:
+        #     return -state.heuristic_cost()
+
+        # Calcular los valores de coste y felicidad del estado
+        cost = state.heuristic_cost()
+        happiness = state.heuristic_happiness()
+
+        # Valores máximos empíricos
+        max_cost = 618.885
+        max_happiness = 56
+
+        # Normalización
+        normalized_cost = cost / max_cost if max_cost > 0 else 0
+        normalized_happiness = happiness / max_happiness if max_happiness > 0 else 0
+
+        # Heurística combinada con ponderaciones
         if self.maximize_happiness:
-            return state.heuristic_happiness()
+            return normalized_happiness  # Maximizar solo la felicidad
         elif self.combine_heuristic:
-            return 0.3*-state.heuristic_cost() + 0.7*state.heuristic_happiness()
+            return 0.1 * -normalized_cost + 0.9 * normalized_happiness
         else:
-            return -state.heuristic_cost()
-        
+            return -normalized_cost  # Minimizar solo el coste
+            
 
     def goal_test(self, state: StateRepresentation) -> bool:
         return False
