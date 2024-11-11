@@ -225,7 +225,7 @@ class StateRepresentation(object):
             return sum(self.happiness.values())
 
     def heuristic_cost_happy(self, alpha) ->float:
-        return -((1-alpha)*self.heuristic_cost() - (alpha*self.heuristic_happiness2()))
+        return (1-alpha)*self.heuristic_cost() - (alpha*self.heuristic_happiness2())
 
     def is_goal(self) -> bool:
         
