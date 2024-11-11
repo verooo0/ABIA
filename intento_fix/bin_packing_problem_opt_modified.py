@@ -25,7 +25,7 @@ class AzamonProblem(Problem):
         if self.maximize_happiness:
             return state.heuristic_happiness()  # Maximizar solo la felicidad
         elif self.combine_heuristic:
-            return state.heuristic_cost_happy(self.alpha)
+            return - state.heuristic_cost_happy(self.alpha)
         else:
             return -state.heuristic_cost() # Minimizar solo el coste
 
