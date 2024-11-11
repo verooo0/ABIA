@@ -20,7 +20,8 @@ class StateRepresentation(object):
             min_delivery_days = (1 if package_priority == 0 else
                                 2 if package_priority == 1 else
                                 4)
-            self.happiness[pkg_id] = max(0, min_delivery_days - self.params.days_limits[offer_id])
+            if offer_id != -1:
+                self.happiness[pkg_id] = max(0, min_delivery_days - self.params.days_limits[offer_id])
 
     def update_falta(self):
         self.falta = []
@@ -31,79 +32,82 @@ class StateRepresentation(object):
     def copy(self):
         return StateRepresentation(self.params, self.assignments.copy(), self.happiness.copy(), self.falta.copy())
 
-    def generate_actions(self, mode_simulated_annealing: bool = False) -> Generator[AzamonOperator, None, None]:
+    def generate_actions_automatic(self, mode_simulated_annealing: bool = False, op1=True, op2=True, op3=False) -> Generator[AzamonOperator, None, None]:
         total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
 
         lista_actions_SA: list[AzamonOperator] = [] # Lista de acciones posibles para el algoritmo Simulated Annealing
 
         ##---AssignPackage---
-        for pkg_id, offer_id in enumerate(self.assignments):
-            total_weights_per_offer[offer_id] += self.params.package_weights[pkg_id]
+        if op1:
+            for pkg_id, offer_id in enumerate(self.assignments):
+                total_weights_per_offer[offer_id] += self.params.package_weights[pkg_id]
 
-        for pkg_id, offer_id in enumerate(self.assignments):
-            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
-            
-            for new_offer_id in range(len(self.params.offer_capacities)):
+            for pkg_id, offer_id in enumerate(self.assignments):
+                max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+                
+                for new_offer_id in range(len(self.params.offer_capacities)):
 
-                weight_new_offer = total_weights_per_offer[new_offer_id] + self.params.package_weights[pkg_id]
+                    weight_new_offer = total_weights_per_offer[new_offer_id] + self.params.package_weights[pkg_id]
 
-                if (new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= weight_new_offer
-                    and self.params.days_limits[new_offer_id] <= max_delivery_days):
+                    if (new_offer_id != offer_id and self.params.offer_capacities[new_offer_id] >= weight_new_offer
+                        and self.params.days_limits[new_offer_id] <= max_delivery_days):
 
-                    if mode_simulated_annealing:
-                        lista_actions_SA.append(AssignPackage(pkg_id, new_offer_id))
-                    else:
-                        yield AssignPackage(pkg_id, new_offer_id)
+                        if mode_simulated_annealing:
+                            lista_actions_SA.append(AssignPackage(pkg_id, new_offer_id))
+                        else:
+                            yield AssignPackage(pkg_id, new_offer_id)
 
         ##-----SwapAssignments-----
-        for pkg_id_1 in range(len(self.assignments)):
-            for pkg_id_2 in range(len(self.assignments)):
-                if pkg_id_1 != pkg_id_2:
-                    offer_id_1 = self.assignments[pkg_id_1]
-                    offer_id_2 = self.assignments[pkg_id_2]
-                    if offer_id_1 != offer_id_2:
+        if op2:
+            for pkg_id_1 in range(len(self.assignments)):
+                for pkg_id_2 in range(len(self.assignments)):
+                    if pkg_id_1 != pkg_id_2:
+                        offer_id_1 = self.assignments[pkg_id_1]
+                        offer_id_2 = self.assignments[pkg_id_2]
+                        if offer_id_1 != offer_id_2:
 
-                        weight_pkg_1 = self.params.package_weights[pkg_id_1]
-                        weight_pkg_2 = self.params.package_weights[pkg_id_2]
+                            weight_pkg_1 = self.params.package_weights[pkg_id_1]
+                            weight_pkg_2 = self.params.package_weights[pkg_id_2]
 
-                        max_delivery_days_1 = self.params.max_delivery_days_per_package[pkg_id_1]
-                        max_delivery_days_2 = self.params.max_delivery_days_per_package[pkg_id_2]
+                            max_delivery_days_1 = self.params.max_delivery_days_per_package[pkg_id_1]
+                            max_delivery_days_2 = self.params.max_delivery_days_per_package[pkg_id_2]
 
-                        new_weight_offer_1 = (total_weights_per_offer[offer_id_1] - weight_pkg_1 + weight_pkg_2)
-                        new_weight_offer_2 = (total_weights_per_offer[offer_id_2] - weight_pkg_2 + weight_pkg_1)
+                            new_weight_offer_1 = (total_weights_per_offer[offer_id_1] - weight_pkg_1 + weight_pkg_2)
+                            new_weight_offer_2 = (total_weights_per_offer[offer_id_2] - weight_pkg_2 + weight_pkg_1)
 
-                        if (self.params.offer_capacities[offer_id_1] >= new_weight_offer_1 and 
-                            self.params.offer_capacities[offer_id_2] >= new_weight_offer_2) and (
-                            self.params.days_limits[offer_id_1] <= max_delivery_days_2 and
-                            self.params.days_limits[offer_id_2] <= max_delivery_days_1 ):
-                            
-                            if mode_simulated_annealing:
-                                lista_actions_SA.append(SwapAssignments(pkg_id_1, pkg_id_2))
-                            else:
-                                yield SwapAssignments(pkg_id_1, pkg_id_2)
+                            if (self.params.offer_capacities[offer_id_1] >= new_weight_offer_1 and 
+                                self.params.offer_capacities[offer_id_2] >= new_weight_offer_2) and (
+                                self.params.days_limits[offer_id_1] <= max_delivery_days_2 and
+                                self.params.days_limits[offer_id_2] <= max_delivery_days_1 ):
+                                
+                                if mode_simulated_annealing:
+                                    lista_actions_SA.append(SwapAssignments(pkg_id_1, pkg_id_2))
+                                else:
+                                    yield SwapAssignments(pkg_id_1, pkg_id_2)
 
-        # ##-----RemovePackage-----
-        # for pkg_id, offer_id in enumerate(self.assignments):
-        #     if pkg_id not in self.falta and self.assignments[pkg_id] != -1:
-        #         if mode_simulated_annealing:
-        #             lista_actions_SA.append(RemovePackage(pkg_id, offer_id))
-        #         else:
-        #             yield RemovePackage(pkg_id, offer_id)
+        if op3:
+            ##-----RemovePackage-----
+            for pkg_id, offer_id in enumerate(self.assignments):
+                if pkg_id not in self.falta and self.assignments[pkg_id] != -1:
+                    if mode_simulated_annealing:
+                        lista_actions_SA.append(RemovePackage(pkg_id, offer_id))
+                    else:
+                        yield RemovePackage(pkg_id, offer_id)
 
-        # ##-----InsertPackage-----
-        # for pkg_id in self.falta:
-        
-        #     max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+            ##-----InsertPackage-----
+            for pkg_id in self.falta:
+            
+                max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
 
-        #     for new_offer_id in range(len(self.params.offer_capacities)):
+                for new_offer_id in range(len(self.params.offer_capacities)):
 
-        #         weight_new_offer = total_weights_per_offer[new_offer_id] + self.params.package_weights[pkg_id]
+                    weight_new_offer = total_weights_per_offer[new_offer_id] + self.params.package_weights[pkg_id]
 
-        #         if self.params.offer_capacities[new_offer_id] >= weight_new_offer and self.params.days_limits[new_offer_id] <= max_delivery_days:
-        #             if mode_simulated_annealing:
-        #                 lista_actions_SA.append(InsertPackage(pkg_id, new_offer_id))
-        #             else:
-        #                 yield InsertPackage(pkg_id, new_offer_id)
+                    if self.params.offer_capacities[new_offer_id] >= weight_new_offer and self.params.days_limits[new_offer_id] <= max_delivery_days:
+                        if mode_simulated_annealing:
+                            lista_actions_SA.append(InsertPackage(pkg_id, new_offer_id))
+                        else:
+                            yield InsertPackage(pkg_id, new_offer_id)
 
         if mode_simulated_annealing:
             # Return random action for SA
@@ -153,79 +157,58 @@ class StateRepresentation(object):
         total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
         #send_cost = sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         for pkg_id, offer_id in enumerate(self.assignments):
-            package_weight = self.params.package_weights[pkg_id]
-            days_limit = self.params.days_limits[offer_id]
-            price_per_kg = self.params.price_kg[offer_id]
-            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
-
-            # 1. Coste de transporte
-            transport_cost = price_per_kg * package_weight
-            total_transport_cost += transport_cost
-
-        # 2. Coste de almacenamiento (solo para ofertas con 3 días o más)
-            if days_limit >= 3:
-                if days_limit == 3 or days_limit == 4:
-                    storage_days = 1  # Paquetes de 3-4 días se almacenan un día
-                elif days_limit == 5:
-                    storage_days = 2  # Paquetes de 5 días se almacenan dos días
-
-            # Calculo del coste de almacenamiento basado en el peso del paquete y los días de almacenamiento
-                storage_cost = storage_days * 0.25 * package_weight
-                total_storage_cost += storage_cost
-
-        #Penalización entrega tarde
-            if days_limit > max_delivery_days:
-                penalty+= 9999999000000
-
-        #Penalización supera peso oferta
-            total_weights_per_offer[offer_id] += package_weight
+            if offer_id == -1:
+                pass
+            else:
+                package_weight = self.params.package_weights[pkg_id]
+                days_limit = self.params.days_limits[offer_id]
+                price_per_kg = self.params.price_kg[offer_id]
+                max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
+    
+                # 1. Coste de transporte
+                transport_cost = price_per_kg * package_weight
+                total_transport_cost += transport_cost
+    
+            # 2. Coste de almacenamiento (solo para ofertas con 3 días o más)
+                if days_limit >= 3:
+                    if days_limit == 3 or days_limit == 4:
+                        storage_days = 1  # Paquetes de 3-4 días se almacenan un día
+                    elif days_limit == 5:
+                        storage_days = 2  # Paquetes de 5 días se almacenan dos días
+    
+                # Calculo del coste de almacenamiento basado en el peso del paquete y los días de almacenamiento
+                    storage_cost = storage_days * 0.25 * package_weight
+                    total_storage_cost += storage_cost
+    
+            #Penalización entrega tarde
+                if days_limit > max_delivery_days:
+                    penalty+= 1000
+    
+            #Penalización supera peso oferta
+                total_weights_per_offer[offer_id] += package_weight
 
         for offer_id, total_weight in enumerate(total_weights_per_offer):
-            if total_weight > self.params.offer_capacities[offer_id]:
-                penalty += 8888888000000
+            if offer_id == -1:
+                pass
+            else:
+                if total_weight > self.params.offer_capacities[offer_id]:
+                    penalty += 500
 
         self.update_falta()
-        penalty += 1111100000000*len(self.falta)
+        penalty += 1000*len(self.falta)
                 
         #return sum(self.params.offer_capacities[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         #return sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
         
         return total_transport_cost + total_storage_cost + penalty
     
-    def heuristic_happiness2(self) -> float:
+    def heuristic_happiness(self) -> float:
         self.update_happiness()
         
         return sum(self.happiness.values()) 
-    
-    def heuristic_happiness(self, calc_penalty: bool = True) -> float:
-
-        self.update_happiness()
-        penalty =0.0
-        total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
-        #send_cost = sum(self.params.price_kg[offer_id] * self.params.package_weights[pkg_id] for pkg_id, offer_id in enumerate(self.assignments))
-        for pkg_id, offer_id in enumerate(self.assignments):
-            package_weight = self.params.package_weights[pkg_id]
-            days_limit = self.params.days_limits[offer_id]
-            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
-
-        #Penalización entrega tarde
-            if days_limit > max_delivery_days:
-                penalty+= 10
-            
-        #Penalización supera peso oferta
-            total_weights_per_offer[offer_id] += package_weight
-
-        for offer_id, total_weight in enumerate(total_weights_per_offer):
-            if total_weight > self.params.offer_capacities[offer_id]:
-                penalty += 10
-                
-        if calc_penalty:
-            return sum(self.happiness.values()) - 10*len(self.falta) -penalty
-        else:
-            return sum(self.happiness.values())
 
     def heuristic_cost_happy(self, alpha) ->float:
-        return (1-alpha)*self.heuristic_cost() - (alpha*self.heuristic_happiness2())
+        return (1-alpha)*self.heuristic_cost() - (alpha*self.heuristic_happiness())
 
     def is_goal(self) -> bool:
         
