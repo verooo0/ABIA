@@ -226,7 +226,7 @@ class StateRepresentation(object):
         else:
             return sum(self.happiness.values())
 
-    def heuristic_cost_happy(self) ->float:
+        def heuristic_cost_happy(self, alpha) ->float:
         total_logistic_cost = 0.0
         total_happiness = 0.0
         penalty_cost = 0.0  # Penalización por violación de restricciones
@@ -236,8 +236,7 @@ class StateRepresentation(object):
         max_happiness = 56
 
         # Ponderaciones
-        weight_logistic = 0.7
-        weight_happiness = 0.3
+        weight_happiness = alpha
         #penalty_weight = 500  # Peso alto para penalizaciones de restricciones
 
         # Cálculo de los componentes y penalizaciones
@@ -258,7 +257,6 @@ class StateRepresentation(object):
             # 2. Felicidad (días de adelanto)
             self.update_happiness()
             total_happiness = sum(self.happiness.values())
-
             # 3. Restricciones: verificar capacidad y días máximos
             #Penalización entrega tarde
             if days_limit > max_delivery_days:
@@ -274,16 +272,13 @@ class StateRepresentation(object):
                 #print('Penalty peso')
 
         self.update_falta()
-        penalty_cost += 1*len(self.falta)
 
 
-        # Normalización de los costes para poder calcularlos juntos en la heurística
-        normalized_logistic_cost = total_logistic_cost / max_logistic_cost
-        normalized_happiness = total_happiness / max_happiness
+        # Normalización de los costes para poder calcularlos juntos en la heurísti
 
         # Heurística combinada con penalizaciones
-        heuristic_value = (weight_logistic * normalized_logistic_cost - 
-                        weight_happiness * normalized_happiness + penalty_cost) #penalty_cost
+        heuristic_value = ((total_logistic_cost) - 
+                        (weight_happiness * total_happiness + penalty_cost)) #penalty_cost
 
         return heuristic_value
 
