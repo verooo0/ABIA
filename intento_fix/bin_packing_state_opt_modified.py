@@ -225,60 +225,7 @@ class StateRepresentation(object):
             return sum(self.happiness.values())
 
     def heuristic_cost_happy(self, alpha) ->float:
-        total_logistic_cost = 0.0
-        total_happiness = 0.0
-        penalty_cost = 0.0  # Penalización por violación de restricciones
-        total_weights_per_offer = [0.0] * len(self.params.offer_capacities)
-        # Valores máximos para normalización según las pruebas
-        max_logistic_cost = 618.885
-        max_happiness = 56
-
-        # Ponderaciones
-        weight_happiness = alpha
-        #penalty_weight = 500  # Peso alto para penalizaciones de restricciones
-
-        # Cálculo de los componentes y penalizaciones
-        for pkg_id, offer_id in enumerate(self.assignments):
-            package_weight = self.params.package_weights[pkg_id]
-            days_limit = self.params.days_limits[offer_id]
-            price_per_kg = self.params.price_kg[offer_id]
-            max_delivery_days = self.params.max_delivery_days_per_package[pkg_id]
-
-            # 1. Coste logístico (transporte + almacenamiento)
-            transport_cost = price_per_kg * package_weight
-            storage_cost = 0.0
-            if days_limit >= 3:
-                storage_days = 1 if days_limit in [3, 4] else 2
-                storage_cost = storage_days * 0.25 * package_weight
-            total_logistic_cost += transport_cost + storage_cost
-
-            # 2. Felicidad (días de adelanto)
-            self.update_happiness()
-            total_happiness = sum(self.happiness.values())
-            # 3. Restricciones: verificar capacidad y días máximos
-            #Penalización entrega tarde
-            if days_limit > max_delivery_days:
-                penalty_cost+= 5
-                #print('Penalty retraso')
-
-        #Penalización supera peso oferta
-            total_weights_per_offer[offer_id] += package_weight
-
-        for offer_id, total_weight in enumerate(total_weights_per_offer):
-            if total_weight > self.params.offer_capacities[offer_id]:
-                penalty_cost += 2
-                #print('Penalty peso')
-
-        self.update_falta()
-
-
-        # Normalización de los costes para poder calcularlos juntos en la heurísti
-
-        # Heurística combinada con penalizaciones
-        heuristic_value = ((total_logistic_cost) - 
-                        (weight_happiness * total_happiness + penalty_cost)) #penalty_cost
-
-        return heuristic_value
+        return -((1-alpha)*self.heuristic_cost() - (alpha*self.heuristic_happiness2()))
 
     def is_goal(self) -> bool:
         
