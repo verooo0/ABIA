@@ -1,3 +1,4 @@
+
 import timeit
 import time
 import math
@@ -125,47 +126,57 @@ total_init_time = 0
 total_sim_time = 0
 total_cost = 0
 total_happiness = 0
+total_combine=0
 
 seeds=[1234,4321,6298,4015,8603,9914,7260,3281,2119,5673]
 lista_k=[0.001,0.05,1,10,20]
 lista_lam=[0.005,0.01,0.1,0.5]
 
-def exp_schedule(k=0.05, lam=0.005, limit=1000):
+def exp_schedule(k=20, lam=0.005, limit=1000):
     return lambda t: (k * math.exp(-lam * t) if t < limit else 0)
 
 # for lam in lista_lam: #Descomentar para hacer experimentos con diferentes valores de lam y k
 #     for k in lista_k:
 #         print(f"======Test k={k} i lam={lam}======")
+for alpha in range(1,10):
+    total_init_time = 0
+    total_sim_time = 0
+    total_cost = 0
+    total_happiness = 0
+    total_combine=0
+    for e in range(5):
+        print(f"\n=== Replica {e + 1} ===")
+        for i in range(10):
+            print(f"\n=== Prueba {i + 1} ===")
+            
+            start_init = time.time()
+            initial_state = generate_initial_state_2(n_paquetes=50, seed=i, proporcion=1.2)
+            init_time = time.time() - start_init
+            total_init_time += init_time
+            
+            start_sim = time.time()
+            result = simulated_annealing(AzamonProblem(initial_state, use_entropy=False, mode_simulated_annealing=True, combine_heuristic=True, alpha=alpha/10), schedule=exp_schedule())
+            sim_time = time.time() - start_sim
+            total_sim_time += sim_time
+            
+            cost = result.heuristic_cost()
+            cost_combine = result.heuristic_cost_happy(alpha/10)
+            happiness = result.heuristic_happiness()
+            total_cost += cost
+            total_happiness += happiness
+            total_combine += cost_combine
+            
+            print(f"Time: {init_time + sim_time:.2f} seconds")
+            print(f"Heuristic cost: {cost} | Heuristic happiness: {happiness} | Assignments: {result.last_assigments()}")
+            print()
 
-for e in range(1):
-    print(f"\n=== Replica {e + 1} ===")
-    for i in range(10):
-        print(f"\n=== Prueba {i + 1} ===")
-        
-        start_init = time.time()
-        initial_state = generate_initial_state_2(n_paquetes=50, seed=i, proporcion=1.2)
-        init_time = time.time() - start_init
-        total_init_time += init_time
-        
-        start_sim = time.time()
-        result = simulated_annealing(AzamonProblem(initial_state, use_entropy=False, mode_simulated_annealing=True, combine_heuristic=True, alpha=0.1), schedule=exp_schedule())
-        sim_time = time.time() - start_sim
-        total_sim_time += sim_time
-        
-        cost = result.heuristic_cost()
-        happiness = result.heuristic_happiness()
-        total_cost += cost
-        total_happiness += happiness
-        
-        print(f"Time: {init_time + sim_time:.2f} seconds")
-        print(f"Heuristic cost: {cost} | Heuristic happiness: {happiness} | Assignments: {result.last_assigments()}")
-        print()
-
-print("\n=== Averages over 10 tests ===")
-print(f"Total time: {total_init_time + total_sim_time}")
-print(f"Average execution time: {(total_init_time + total_sim_time) / 10:.2f} seconds")
-print(f"Average heuristic cost: {total_cost / 10:.2f}")
-print(f"Average heuristic happiness: {total_happiness / 10:.2f}")
+    print("\n=== Averages over 50 tests ===")
+    print(f'Alpha{alpha/10}')
+    print(f"Total time: {total_init_time + total_sim_time}")
+    print(f"Average execution time: {(total_init_time + total_sim_time) / 50:.2f} seconds")
+    print(f"Average heuristic cost: {total_cost / 50:.2f}")
+    print(f'Avarage heuristic combine:{total_combine/50:.2f}')
+    print(f"Average heuristic happiness: {total_happiness / 50:.2f}")
 
 #### PARA GUARDAR EN CSV LOS DATOS DE LA EVOLUCION DEL COSTE POR CADA CAMBIO EN EL ESTADO
 
